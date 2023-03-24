@@ -389,7 +389,7 @@ class LifelongLearning(JobBase):
                 f"Download kb index from {task_index_url} to {index_url}")
             FileOps.download(task_index_url, index_url)
 
-        res, index_file = self._task_evaluation(
+        res, index_file, result = self._task_evaluation(
             data, task_index=index_url, **kwargs)
         self.log.info("Task evaluation finishes.")
 
@@ -406,6 +406,41 @@ class LifelongLearning(JobBase):
             task_info_res,
             kind="eval")
         return callback_func(res) if callback_func else res
+
+    def my_evaluate(self, data, post_process=None, **kwargs):
+        """
+        evaluated the performance of each task from training, filter tasks
+        based on the defined rules.
+
+        Parameters
+        ----------
+        data : BaseDataSource
+            valid data, see `sedna.datasources.BaseDataSource` for more detail.
+        kwargs: Dict
+            parameters for `estimator` evaluate, Like:
+            `ntree_limit` in Xgboost.XGBClassifier
+        """
+
+        callback_func = None
+        if callable(post_process):
+            callback_func = post_process
+        elif post_process is not None:
+            callback_func = ClassFactory.get_cls(
+                ClassType.CALLBACK, post_process)
+
+        cloud_knowledge_management = self.get_cloud_knowledge_management()
+        task_index_url = Context.get_parameters(
+            "MODEL_URLS", cloud_knowledge_management.task_index)
+        index_url = cloud_knowledge_management.local_task_index_url
+        self.log.info(
+            f"Download kb index from {task_index_url} to {index_url}")
+        FileOps.download(task_index_url, index_url)
+
+        res, index_file, result = self._task_evaluation(
+            cloud_knowledge_management, data, task_index=index_url, **kwargs)
+        self.log.info("Task evaluation finishes.")
+
+        return result
 
     def inference(self, data=None, post_process=None, **kwargs):
         """
@@ -511,7 +546,7 @@ class LifelongLearning(JobBase):
             self.edge_knowledge_management.start_services()
 
     def _task_evaluation(self, data, **kwargs):
-        res, tasks_detail = \
+        res, tasks_detail, result = \
             self.cloud_knowledge_management.seen_estimator.evaluate(
                 data=data,
                 **kwargs)
@@ -528,4 +563,4 @@ class LifelongLearning(JobBase):
         else:
             self.log.info(f"Deploy {index_file} to the edge.")
 
-        return res, index_file
+        return res, index_file, result

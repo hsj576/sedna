@@ -568,4 +568,4 @@ class SeenTaskLearning:
             name: metric(data.y, result, **metrics_param)
             for name, metric in m_dict.items()
         }
-        return task_eval_res, tasks_detail
+        return task_eval_res, tasks_detail, result
